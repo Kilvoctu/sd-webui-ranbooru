@@ -120,7 +120,7 @@ class Booru():
         self.booru_url = booru_url
         self.headers = {'user-agent': 'my-app/0.0.1'}
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         pass
 
     def get_post(self, add_tags, max_pages=10, id=''):
@@ -133,7 +133,7 @@ class Gelbooru(Booru):
         super().__init__('gelbooru', f'https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}{GEL_API_AUTH}')
         self.fringeBenefits = fringe_benefits
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -161,7 +161,7 @@ class Gelbooru(Booru):
         return data
 
     def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
+        return self.get_data(add_tags, user_tagged, max_pages, "&id=" + id)
 
 
 class XBooru(Booru):
@@ -169,7 +169,7 @@ class XBooru(Booru):
     def __init__(self):
         super().__init__('xbooru', f'https://xbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -197,7 +197,7 @@ class XBooru(Booru):
         return {'post': data}
 
     def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
+        return self.get_data(add_tags, user_tagged, max_pages, "&id=" + id)
 
 
 class Rule34(Booru):
@@ -205,7 +205,7 @@ class Rule34(Booru):
     def __init__(self):
         super().__init__('rule34', f'https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -229,7 +229,7 @@ class Rule34(Booru):
         return {'post': data}
 
     def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
+        return self.get_data(add_tags, user_tagged, max_pages, "&id=" + id)
 
 
 class Safebooru(Booru):
@@ -237,7 +237,7 @@ class Safebooru(Booru):
     def __init__(self):
         super().__init__('safebooru', f'https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -264,7 +264,7 @@ class Safebooru(Booru):
         return {'post': data}
 
     def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
+        return self.get_data(add_tags, user_tagged, max_pages, "&id=" + id)
 
 
 class Konachan(Booru):
@@ -272,7 +272,7 @@ class Konachan(Booru):
     def __init__(self):
         super().__init__('konachan', f'https://konachan.com/post.json?limit={POST_AMOUNT}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -304,7 +304,7 @@ class Yandere(Booru):
     def __init__(self):
         super().__init__('yande.re', f'https://yande.re/post.json?limit={POST_AMOUNT}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -337,7 +337,7 @@ class AIBooru(Booru):
     def __init__(self):
         super().__init__('AIBooru', f'https://aibooru.online/posts.json?limit={POST_AMOUNT}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -371,11 +371,11 @@ class Danbooru(Booru):
     def __init__(self):
         super().__init__('danbooru', f'https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}{DAN_API_AUTH}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
-        if (DANBOORU_TIER == 'gold' or DANBOORU_TIER == 'platinum') and add_tags != '&tags=-animated':
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
+        if (DANBOORU_TIER == 'gold' or DANBOORU_TIER == 'platinum') and user_tagged is False:
             max_pages = max_pages * 50
         else:
-            max_pages = max_pages * 10
+            max_pages = max_pages * 5
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -414,7 +414,7 @@ class e621(Booru):
     def __init__(self):
         super().__init__('danbooru', f'https://e621.net/posts.json?limit={POST_AMOUNT}')
 
-    def get_data(self, add_tags, max_pages=10, id=''):
+    def get_data(self, add_tags, user_tagged, max_pages=10, id=''):
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -445,7 +445,7 @@ class e621(Booru):
         return {'post': data}
 
     def get_post(self, add_tags, max_pages=10, id=''):
-        self.get_data(add_tags, max_pages, "&id=" + id)
+        self.get_data(add_tags, user_tagged, max_pages, "&id=" + id)
 
 
 def generate_chaos(pos_tags, neg_tags, chaos_amount):
@@ -613,7 +613,7 @@ class Script(scripts.Script):
         if self.result_img == 'https://pic.re/image':
             self.result_url = "No source found. Check out this random image."
         else:
-            result_link = f"<a href='{self.result_url}'>Click to open source link</a>"
+            result_link = f"<a href='{self.result_url}'>Open source link in new tab</a>"
         return self.result_url, result_link, self.result_img
 
     def ui(self, is_img2img):
@@ -813,7 +813,9 @@ class Script(scripts.Script):
                 tags = f'{tags},{selected_tags}' if tags else selected_tags
 
             add_tags = '&tags=-animated'
+            user_tagged = False
             if tags:
+                user_tagged = True
                 add_tags += f'+{tags.replace(",", "+")}'
             if mature_rating != 'All':
                 # rating does not count towards danbooru's tag limit
@@ -831,7 +833,7 @@ class Script(scripts.Script):
             if post_id:
                 data = api_url.get_post(add_tags, max_pages, post_id)
             else:
-                data = api_url.get_data(add_tags, max_pages)
+                data = api_url.get_data(add_tags, user_tagged, max_pages)
 
             print(api_url.booru_url)
             # Replace null scores with 0s
