@@ -45,6 +45,18 @@ BW_BG = ['monochrome', 'greyscale', 'grayscale']
 POST_AMOUNT = 100
 COUNT = 100 #Number of images the search returned. Booru classes below were modified to update this value with the latest search result count.
 DEBUG = False
+BOORU_ENDPOINTS= {
+    "gelbooru": "https://gelbooru.com/index.php?page=post&s=view&id=",
+    "rule34": "https://rule34.xxx/index.php?page=post&s=view&id=",
+    "safebooru": "https://safebooru.org/index.php?page=post&s=view&id=",
+    "danbooru": "https://danbooru.donmai.us/posts/",
+    "konachan": "https://konachan.net/post/show/",
+    "yande.re": "https://yande.re/post/show/",
+    "aibooru": "https://aibooru.online/posts/",
+    "xbooru": "https://xbooru.com/index.php?page=post&s=view&id=",
+    "e621": "https://e621.net/posts/"
+}
+
 RATING_TYPES = {
     "none": {
         "All": "All"
@@ -861,24 +873,7 @@ class Script(scripts.Script):
                 temp_tags = random.sample(clean_tags.split(' '), len(clean_tags.split(' '))) if shuffle_tags else clean_tags.split(' ')
                 prompts.append(','.join(temp_tags))
                 preview_urls.append(random_post.get('file_url', 'https://pic.re/image'))
-                if booru == 'gelbooru':
-                    self.result_url = f"https://gelbooru.com/index.php?page=post&s=view&id={random_post['id']}"
-                if booru == 'rule34':
-                    self.result_url = f"https://rule34.xxx/index.php?page=post&s=view&id={random_post['id']}"
-                if booru == 'safebooru':
-                    self.result_url = f"https://safebooru.org/index.php?page=post&s=view&id={random_post['id']}"
-                if booru == 'danbooru':
-                    self.result_url = f"https://danbooru.donmai.us/posts/{random_post['id']}"
-                if booru == 'konachan':
-                    self.result_url = f"https://konachan.net/post/show/{random_post['id']}"
-                if booru == 'yande.re':
-                    self.result_url = f"https://yande.re/post/show/{random_post['id']}"
-                if booru == 'aibooru':
-                    self.result_url = f"https://aibooru.online/posts/{random_post['id']}"
-                if booru == 'xbooru':
-                    self.result_url = f"https://xbooru.com/index.php?page=post&s=view&id={random_post['id']}"
-                if booru == 'e621':
-                    self.result_url = f"https://e621.net/posts/{random_post['id']}"
+                self.result_url = f"{BOORU_ENDPOINTS[booru]}{random_post['id']}"
                 keys_to_check = ['sample_url', 'large_file_url', 'file_url', ('file', 'url')]
                 for key in keys_to_check:
                     try:
