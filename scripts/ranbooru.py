@@ -815,8 +815,9 @@ class Script(scripts.Script):
             add_tags = '&tags=-animated'
             if tags:
                 add_tags += f'+{tags.replace(",", "+")}'
-                if mature_rating != 'All':
-                    add_tags += f'+rating:{RATINGS[booru][mature_rating]}'
+            if mature_rating != 'All':
+                # rating does not count towards danbooru's tag limit
+                add_tags += f'+rating:{RATINGS[booru][mature_rating]}'
 
             # Getting Data
             random_post = {'preview_url': ''}
