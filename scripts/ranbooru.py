@@ -5,6 +5,7 @@ import requests
 import modules.scripts as scripts
 import gradio as gr
 import os
+from dotenv import load_dotenv
 from PIL import Image
 import numpy as np
 import importlib
@@ -16,6 +17,7 @@ from modules.sd_hijack import model_hijack
 from modules import deepbooru
 from modules.ui_components import InputAccordion
 
+load_dotenv()
 extension_root = scripts.basedir()
 user_data_dir = os.path.join(extension_root, 'user')
 user_search_dir = os.path.join(user_data_dir, 'search')
@@ -29,6 +31,13 @@ if not os.path.isfile(os.path.join(user_search_dir, 'tags_search.txt')):
 if not os.path.isfile(os.path.join(user_remove_dir, 'tags_remove.txt')):
     with open(os.path.join(user_remove_dir, 'tags_remove.txt'), 'w'):
         pass
+
+GEL_API_AUTH, DAN_API_AUTH = '', ''
+DANBOORU_TIER = os.getenv("danbooru_tier")
+if os.getenv("danbooru_login") and os.getenv("danbooru_api_key"):
+    DAN_API_AUTH = f'&login={os.getenv("danbooru_login")}&api_key={os.getenv("danbooru_api_key")}'
+if os.getenv("gelbooru_user_id") and os.getenv("gelbooru_api_key"):
+    GEL_API_AUTH = f'&user_id={os.getenv("gelbooru_user_id")}&api_key={os.getenv("gelbooru_api_key")}'
 
 COLORED_BG = ['black_background', 'aqua_background', 'white_background', 'colored_background', 'gray_background', 'blue_background', 'green_background', 'red_background', 'brown_background', 'purple_background', 'yellow_background', 'orange_background', 'pink_background', 'plain', 'transparent_background', 'simple_background', 'two-tone_background', 'grey_background']
 ADD_BG = ['outdoors', 'indoors']
@@ -88,7 +97,7 @@ def check_exception(booru, parameters):
         raise Exception("Yande.re does not support post IDs")
     if booru == 'e621' and post_id:
         raise Exception("e621 does not support post IDs")
-    if booru == 'danbooru' and len(tags.split(',')) > 1:
+    if booru == 'danbooru' and len(tags.split(',')) > 1 and (DANBOORU_TIER is None or DANBOORU_TIER == 'member'):
         raise Exception("Danbooru does not support multiple tags. You can have only one tag.")
 
 
@@ -109,7 +118,7 @@ class Booru():
 class Gelbooru(Booru):
 
     def __init__(self, fringe_benefits):
-        super().__init__('gelbooru', f'https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
+        super().__init__('gelbooru', f'https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}{GEL_API_AUTH}')
         self.fringeBenefits = fringe_benefits
 
     def get_data(self, add_tags, max_pages=10, id=''):
@@ -348,9 +357,13 @@ class AIBooru(Booru):
 class Danbooru(Booru):
 
     def __init__(self):
-        super().__init__('danbooru', f'https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}')
+        super().__init__('danbooru', f'https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}{DAN_API_AUTH}')
 
     def get_data(self, add_tags, max_pages=10, id=''):
+        if (DANBOORU_TIER == 'gold' or DANBOORU_TIER == 'platinum') and add_tags != '&tags=-animated':
+            max_pages = max_pages * 50
+        else:
+            max_pages = max_pages * 10
         global COUNT
         loop_msg = True # avoid showing same msg twice
         for loop in range(2): # run loop at most twice
@@ -556,6 +569,8 @@ class Script(scripts.Script):
     real_steps = 0
     version = "1.2"
     original_prompt = ''
+    result_url = ''
+    result_img = 'https://pic.re/image'
 
     def get_files(self, path):
         files = []
@@ -581,34 +596,46 @@ class Script(scripts.Script):
         return gr.update(choices=self.get_files(user_search_dir))
     def refresh_rem(self):
         return gr.update(choices=self.get_files(user_remove_dir))
+    def get_last_result(self):
+        result_link = ''
+        if self.result_img == 'https://pic.re/image':
+            self.result_url = "No source found. Check out this random image."
+        else:
+            result_link = f"<a href='{self.result_url}'>Click to open source link</a>"
+        return self.result_url, result_link, self.result_img
 
     def ui(self, is_img2img):
         with InputAccordion(False, label="Ranbooru", elem_id=self.elem_id("ra_enable")) as enabled:
-            booru = gr.Dropdown(
-                ["gelbooru", "rule34", "safebooru", "danbooru", "konachan", 'yande.re', 'aibooru', 'xbooru', 'e621'], label="Booru", value="gelbooru")
-            max_pages = gr.Slider(label="Max Pages", minimum=1, maximum=100, value=100, step=1)
-            gr.Markdown("""## Post""")
-            post_id = gr.Textbox(lines=1, label="Post ID")
-            gr.Markdown("""## Tags""")
-            tags = gr.Textbox(lines=1, label="Tags to Search (Pre)")
-            remove_tags = gr.Textbox(lines=1, label="Tags to Remove (Post)")
-            mature_rating = gr.Radio(list(RATINGS['gelbooru']), label="Mature Rating", value="All")
-            remove_bad_tags = gr.Checkbox(label="Remove bad tags", value=True)
-            shuffle_tags = gr.Checkbox(label="Shuffle tags", value=True)
-            change_dash = gr.Checkbox(label='Convert "_" to spaces', value=False)
-            same_prompt = gr.Checkbox(label="Use same prompt for all images", value=False)
-            fringe_benefits = gr.Checkbox(label="Fringe Benefits", value=True)
-            limit_tags = gr.Slider(value=1.0, label="Limit tags", minimum=0.05, maximum=1.0, step=0.05)
-            max_tags = gr.Slider(value=100, label="Max tags", minimum=1, maximum=100, step=1)
-            change_background = gr.Radio(["Don't Change", "Add Background", "Remove Background", "Remove All"], label="Change Background", value="Don't Change")
-            change_color = gr.Radio(["Don't Change", "Colored", "Limited Palette", "Monochrome"], label="Change Color", value="Don't Change")
-            sorting_order = gr.Radio(["Random", "High Score", "Low Score"], label="Sorting Order", value="Random")
+            with gr.Accordion("Image Result Source", open=False):
+                result_id_button = gr.Button(value='Get last result', variant='primary', size='lg')
+                with gr.Blocks():
+                    result_id = gr.Textbox(label="Image source link", lines=1, max_lines=1, interactive=False)
+                    result_id_link = gr.Markdown()
+                result_image = gr.Image(label="Image", show_download_button=False, interactive=False)
+            with gr.Accordion("Ranbooru Parameters", open=False):
+                booru = gr.Dropdown(
+                    ["gelbooru", "rule34", "safebooru", "danbooru", "konachan", 'yande.re', 'aibooru', 'xbooru', 'e621'], label="Booru", value="gelbooru")
+                max_pages = gr.Slider(label="Max Pages", minimum=1, maximum=100, value=100, step=1)
+                gr.Markdown("""## Post""")
+                post_id = gr.Textbox(lines=1, label="Post ID")
+                gr.Markdown("""## Tags""")
+                tags = gr.Textbox(lines=1, label="Tags to Search (Pre)")
+                remove_tags = gr.Textbox(lines=1, label="Tags to Remove (Post)")
+                mature_rating = gr.Radio(list(RATINGS['gelbooru']), label="Mature Rating", value="All")
+                remove_bad_tags = gr.Checkbox(label="Remove bad tags", value=True)
+                shuffle_tags = gr.Checkbox(label="Shuffle tags", value=True)
+                change_dash = gr.Checkbox(label='Convert "_" to spaces', value=False)
+                same_prompt = gr.Checkbox(label="Use same prompt for all images", value=False)
+                fringe_benefits = gr.Checkbox(label="Fringe Benefits", value=True)
+                limit_tags = gr.Slider(value=1.0, label="Limit tags", minimum=0.05, maximum=1.0, step=0.05)
+                max_tags = gr.Slider(value=100, label="Max tags", minimum=1, maximum=100, step=1)
+                change_background = gr.Radio(["Don't Change", "Add Background", "Remove Background", "Remove All"], label="Change Background", value="Don't Change")
+                change_color = gr.Radio(["Don't Change", "Colored", "Limited Palette", "Monochrome"], label="Change Color", value="Don't Change")
+                sorting_order = gr.Radio(["Random", "High Score", "Low Score"], label="Sorting Order", value="Random")
 
-            booru.change(get_available_ratings, booru, mature_rating)  # update available ratings
-            booru.change(show_fringe_benefits, booru, fringe_benefits)  # display fringe benefits checkbox if gelbooru is selected
-
-            gr.Markdown("""\n---\n""")
-            with gr.Group():
+                booru.change(get_available_ratings, booru, mature_rating)  # update available ratings
+                booru.change(show_fringe_benefits, booru, fringe_benefits)  # display fringe benefits checkbox if gelbooru is selected
+                gr.Markdown("""\n---\n""")
                 with gr.Accordion("Img2Img", open=False):
                     use_img2img = gr.Checkbox(label="Use img2img", value=False)
                     use_ip = gr.Checkbox(label="Send to Controlnet", value=False)
@@ -617,7 +644,6 @@ class Script(scripts.Script):
                     crop_center = gr.Checkbox(label="Crop Center", value=False)
                     use_deepbooru = gr.Checkbox(label="Use Deepbooru", value=False)
                     type_deepbooru = gr.Radio(["Add Before", "Add After", "Replace"], label="Deepbooru Tags Position", value="Add Before")
-            with gr.Group():
                 with gr.Accordion("File", open=False):
                     use_search_txt = gr.Checkbox(label="Use tags_search.txt", value=False)
                     choose_search_txt = gr.Dropdown(self.get_files(user_search_dir), label="Choose tags_search.txt", value="")
@@ -625,7 +651,6 @@ class Script(scripts.Script):
                     use_remove_txt = gr.Checkbox(label="Use tags_remove.txt", value=False)
                     choose_remove_txt = gr.Dropdown(self.get_files(user_remove_dir), label="Choose tags_remove.txt", value="")
                     remove_refresh_btn = gr.Button("Refresh")
-            with gr.Group():
                 with gr.Accordion("Extra", open=False):
                     with gr.Box():
                         mix_prompt = gr.Checkbox(label="Mix prompts", value=False)
@@ -658,6 +683,12 @@ class Script(scripts.Script):
             fn=self.refresh_rem,
             inputs=[],
             outputs=[choose_remove_txt]
+        )
+
+        result_id_button.click(
+            fn=self.get_last_result,
+            inputs=[],
+            outputs=[result_id, result_id_link, result_image]
         )
 
         return [enabled, tags, booru, remove_bad_tags, max_pages, change_dash, same_prompt, fringe_benefits, remove_tags, use_img2img, denoising, use_last_img, change_background, change_color, shuffle_tags, post_id, mix_prompt, mix_amount, chaos_mode, negative_mode, chaos_amount, limit_tags, max_tags, sorting_order, mature_rating, lora_folder, lora_amount, lora_min, lora_max, lora_enabled, lora_custom_weights, lora_lock_prev, use_ip, use_search_txt, use_remove_txt, choose_search_txt, choose_remove_txt, search_refresh_btn, remove_refresh_btn, crop_center, use_deepbooru, type_deepbooru, use_same_seed, use_cache]
@@ -830,6 +861,37 @@ class Script(scripts.Script):
                 temp_tags = random.sample(clean_tags.split(' '), len(clean_tags.split(' '))) if shuffle_tags else clean_tags.split(' ')
                 prompts.append(','.join(temp_tags))
                 preview_urls.append(random_post.get('file_url', 'https://pic.re/image'))
+                if booru == 'gelbooru':
+                    self.result_url = f"https://gelbooru.com/index.php?page=post&s=view&id={random_post['id']}"
+                if booru == 'rule34':
+                    self.result_url = f"https://rule34.xxx/index.php?page=post&s=view&id={random_post['id']}"
+                if booru == 'safebooru':
+                    self.result_url = f"https://safebooru.org/index.php?page=post&s=view&id={random_post['id']}"
+                if booru == 'danbooru':
+                    self.result_url = f"https://danbooru.donmai.us/posts/{random_post['id']}"
+                if booru == 'konachan':
+                    self.result_url = f"https://konachan.net/post/show/{random_post['id']}"
+                if booru == 'yande.re':
+                    self.result_url = f"https://yande.re/post/show/{random_post['id']}"
+                if booru == 'aibooru':
+                    self.result_url = f"https://aibooru.online/posts/{random_post['id']}"
+                if booru == 'xbooru':
+                    self.result_url = f"https://xbooru.com/index.php?page=post&s=view&id={random_post['id']}"
+                if booru == 'e621':
+                    self.result_url = f"https://e621.net/posts/{random_post['id']}"
+                keys_to_check = ['sample_url', 'large_file_url', 'file_url', ('file', 'url')]
+                for key in keys_to_check:
+                    try:
+                        if isinstance(key, tuple):
+                            self.result_img = random_post['file']['url']
+                            break
+                        else:
+                            value = random_post[key]
+                            if value:
+                                self.result_img = value
+                                break
+                    except KeyError:
+                        self.result_img = 'https://pic.re/image'
                 # Debug picture
                 if DEBUG:
                     print(random_post)

@@ -2,3 +2,4 @@
 deploy.ps1
 __pycache__
 user
+.env
